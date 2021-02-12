@@ -76,7 +76,9 @@ namespace transport
         std::atomic_bool m_stopped;
 
         // Command channel
-        sttp::SslTcpSocket m_commandChannelSocket;
+        sttp::TcpSocket m_commandChannelSocket;
+        sttp::SslTcpSocket m_commandSslSocket;
+        sttp::SslContext m_commandSslContext;
         std::vector<uint8_t> m_readBuffer;
         std::deque<SharedPtr<std::vector<uint8_t>>> m_tcpWriteBuffers;
         sttp::IPAddress m_ipAddress;
@@ -87,8 +89,9 @@ namespace transport
         sttp::Mutex m_dataChannelMutex;
         sttp::WaitHandle m_dataChannelWaitHandle;
         sttp::IOContext m_dataChannelService;
-        sttp::SslUdpSocket m_dataChannelSocket;
-        sttp::SslContext m_context;
+        sttp::UdpSocket m_dataChannelSocket;
+        sttp::SslUdpSocket m_dataSslSocket;
+        sttp::SslContext m_dataSslContext;
         std::string m_ca;
         sttp::Strand m_udpWriteStrand;
         std::deque<SharedPtr<std::vector<uint8_t>>> m_udpWriteBuffers;

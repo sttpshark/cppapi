@@ -98,10 +98,6 @@ namespace transport
         Thread m_commandChannelAcceptThread;
         IOContext m_commandChannelService;
         TcpAcceptor m_clientAcceptor;
-        SslContext m_context;
-        std::string m_ca;
-        std::string m_pk;
-        std::string m_dh;
 
         // Command channel handlers
         void StartAccept();

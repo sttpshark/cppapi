@@ -56,10 +56,6 @@ SecureDataPublisher::SecureDataPublisher() :
     m_stopped(false),
     m_userData(nullptr),
     m_clientAcceptor(m_commandChannelService),
-    m_context(boost::asio::ssl::context::sslv23),
-    m_ca(std::getenv("CA")),
-    m_pk(std::getenv("PK")),
-    m_dh(std::getenv("DH"))
 {
 }
 
@@ -104,8 +100,8 @@ SecureDataPublisher::CallbackDispatcher::CallbackDispatcher() :
 
 void SecureDataPublisher::StartAccept()
 {
-    const SecureSubscriberConnectionPtr connection = NewSharedPtr<SubscriberConnection, SecureDataPublisherPtr, IOContext&, SslContext>(shared_from_this(), m_commandChannelService, m_context);
-    
+    const SecureSubscriberConnectionPtr connection = NewSharedPtr<SubscriberConnection, SecureDataPublisherPtr, IOContext&>(shared_from_this(), m_commandChannelService);
+    connection->
     m_clientAcceptor.async_accept(connection->CommandChannelSocket(), [this, connection]<typename T0>(T0&& error)
     {
         AcceptConnection(connection, error);

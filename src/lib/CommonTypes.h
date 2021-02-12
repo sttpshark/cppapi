@@ -1,7 +1,7 @@
 //******************************************************************************************************
 //  CommonTypes.h - Gbtc
 //
-//  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+//  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 //
 //  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 //  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -284,7 +284,10 @@ namespace sttp
     typedef boost::asio::steady_timer SteadyTimer;
     typedef boost::asio::ip::address IPAddress;
     typedef boost::asio::ip::tcp::socket TcpSocket;
+    typedef boost::asio::ssl::stream<TcpSocket> SslTcpSocket;
     typedef boost::asio::ip::udp::socket UdpSocket;
+    typedef boost::asio::ssl::stream<UdpSocket> SslUdpSocket;
+    typedef boost::asio::ssl::context SslContext;
     typedef boost::asio::ip::tcp::acceptor TcpAcceptor;
     typedef boost::asio::ip::tcp::endpoint TcpEndPoint;
     typedef boost::asio::ip::tcp::resolver DnsResolver;
