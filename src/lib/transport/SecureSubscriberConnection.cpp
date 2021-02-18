@@ -78,8 +78,6 @@ SecureSubscriberConnection::SecureSubscriberConnection(DataPublisherPtr parent, 
     m_dataSslContext(boost::asio::ssl::context::sslv23),
     m_dataSslSocket(m_dataChannelSocket, m_dataSslContext), // End Ssl
     m_ca(std::getenv("CA")),
-    m_pk(std::getenv("PK")),
-    m_dh(std::getenv("DH")),
     m_udpWriteStrand(m_dataChannelService),
     m_totalCommandChannelBytesSent(0LL),
     m_totalDataChannelBytesSent(0LL),
@@ -115,9 +113,14 @@ SecureSubscriberConnectionPtr SecureSubscriberConnection::GetReference()
     return shared_from_this();
 }
 
-TcpSocket& SecureSubscriberConnection::CommandChannelSocket()
+sttp::SslTcpSocket& SecureSubscriberConnection::CommandChannelSocket()
 {
-    return m_commandChannelSocket;
+    return m_commandSslSocket;
+}
+
+sttp::SslContext& SecureSubscriberConnection::CommandSslContext()
+{
+    return m_commandSslContext;
 }
 
 const sttp::Guid& SecureSubscriberConnection::GetSubscriberID() const
@@ -739,7 +742,7 @@ void SecureSubscriberConnection::HandleSubscribe(uint8_t* data, uint32_t length)
                                 m_dataChannelSocket.set_verify_callback(std::bind(&SecureSubscriberConnection::verify_certificate, this, std::placeholders::_1, std::placeholders::_2));
                                 m_dataChannelSocket.set_verify_callback([&](bool b, context c){ return this->verify_certificate(v, c););
 
-                                boost::asio::asyc_connect(m_dataChannelSocket.lowest_layer, udp::endpoint(remoteEndPoint.address(), m_udpPort),
+                                boost::asio::async_connect(m_dataChannelSocket.lowest_layer, udp::endpoint(remoteEndPoint.address(), m_udpPort),
                                     [this](const boost::system::error_code& error,const tcp::endpoint& /*endpoint*/)
                                     {
                                         if (!error)

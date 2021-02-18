@@ -121,6 +121,7 @@ namespace transport
 
         // Server request handlers
         void HandleSubscribe(uint8_t* data, uint32_t length);
+        bool SecureSubscriberConnection::verify_certificate(bool preverified, boost::asio::ssl::verify_context& ctx);
         void HandleSubscribeFailure(const std::string& message);
         void HandleUnsubscribe();
         void HandleMetadataRefresh(uint8_t* data, uint32_t length);
@@ -155,6 +156,7 @@ namespace transport
         SecureSubscriberConnectionPtr GetReference();
 
         sttp::SslTcpSocket& CommandChannelSocket();
+        sttp::SslContext& CommandSslContext();
 
         // Gets or sets subscriber UUID used when subscriber is known and pre-established
         const sttp::Guid& GetSubscriberID() const;

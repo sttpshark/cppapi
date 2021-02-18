@@ -101,7 +101,15 @@ SecureDataPublisher::CallbackDispatcher::CallbackDispatcher() :
 void SecureDataPublisher::StartAccept()
 {
     const SecureSubscriberConnectionPtr connection = NewSharedPtr<SubscriberConnection, SecureDataPublisherPtr, IOContext&>(shared_from_this(), m_commandChannelService);
-    connection->
+    const sttp::SslContext & m_context = connection->CommandSslContext();
+    m_context.set_options(
+        boost::asio::ssl::context::default_workarounds
+        | boost::asio::ssl::context::no_sslv2
+        | boost::asio::ssl::context::single_dh_use);
+    m_context.set_password_callback(std::bind(&server::get_password, this));
+    m_context.use_certificate_chain_file(m_ca);
+    m_context.use_private_key_file(m_pk, boost::asio::ssl::context::pem);
+    m_context.use_tmp_dh_file(m_dh);
     m_clientAcceptor.async_accept(connection->CommandChannelSocket(), [this, connection]<typename T0>(T0&& error)
     {
         AcceptConnection(connection, error);
@@ -876,14 +884,6 @@ void SecureDataPublisher::Start(const TcpEndPoint& endpoint)
 #else
     m_commandChannelService.restart();
 #endif
-    m_context.set_options(
-        boost::asio::ssl::context::default_workarounds
-        | boost::asio::ssl::context::no_sslv2
-        | boost::asio::ssl::context::single_dh_use);
-    m_context.set_password_callback(std::bind(&server::get_password, this));
-    m_context.use_certificate_chain_file(m_ca);
-    m_context.use_private_key_file(m_pk, boost::asio::ssl::context::pem);
-    m_context.use_tmp_dh_file(m_dh);
     m_clientAcceptor = TcpAcceptor(m_commandChannelService, endpoint, false); //-V601
     
     // Run call-back thread
