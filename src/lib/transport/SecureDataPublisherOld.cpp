@@ -125,7 +125,7 @@ void SecureDataPublisher::AcceptConnection(const SecureSubscriberConnectionPtr& 
         // Initiate connection, if connection is not accepted, at least resolve connection info
         connection->Start(connectionAccepted);
         // TODO: For secured connections, validate certificate and IP information here to assign subscriberID
-        const bool handshakeComplete = connection->CommandChannelSocket().async_handshake(boost::asio::ssl::stream_base::server, 
+        connection->CommandChannelSocket().async_handshake(boost::asio::ssl::stream_base::server,
             [this, self](const boost::system::error_code& error)
             {
                 if (!error && connectionAccepted)
