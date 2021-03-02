@@ -1,7 +1,7 @@
 //******************************************************************************************************
 //  CommonTypes.cpp - Gbtc
 //
-//  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+//  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 //
 //  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 //  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -28,6 +28,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/cxx11/all_of.hpp>
 #define BOOST_ALLOW_DEPRECATED_HEADERS  // NOLINT(clang-diagnostic-unused-macros)
 #include <boost/uuid/uuid_generators.hpp>
 

@@ -1,7 +1,7 @@
 //******************************************************************************************************
 //  FilterExpressionParser.cpp - Gbtc
 //
-//  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+//  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 //
 //  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 //  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -23,6 +23,7 @@
 
 // ReSharper disable CppClangTidyClangDiagnosticExitTimeDestructors
 // ReSharper disable CppClangTidyClangDiagnosticCoveredSwitchDefault
+#include <boost/algorithm/cxx11/sort.hpp>
 #include "FilterExpressionParser.h"
 #include "tree/ParseTreeWalker.h"
 #include "../Nullable.h"

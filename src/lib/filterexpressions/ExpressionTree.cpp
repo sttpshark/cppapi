@@ -1,7 +1,7 @@
 //******************************************************************************************************
 //  ExpressionTree.cpp - Gbtc
 //
-//  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+//  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 //
 //  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 //  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -26,6 +26,7 @@
 // ReSharper disable CppClangTidyClangDiagnosticSwitchEnum
 // ReSharper disable CppClangTidyPerformanceNoAutomaticMove
 #include "ExpressionTree.h"
+#include <boost/algorithm/cxx11/reverse.hpp>
 #include <regex>
 
 using namespace std;
