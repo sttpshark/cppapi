@@ -26,7 +26,6 @@
 // ReSharper disable CppClangTidyClangDiagnosticSwitchEnum
 // ReSharper disable CppClangTidyPerformanceNoAutomaticMove
 #include "ExpressionTree.h"
-#include <boost/algorithm/cxx11/reverse.hpp>
 #include <regex>
 
 using namespace std;
@@ -1901,7 +1900,7 @@ ValueExpressionPtr ExpressionTree::Reverse(const ValueExpressionPtr& sourceValue
         return sourceValue;
 
     string value = sourceValue->ValueAsString();
-    std::ranges::reverse(value); 
+    std::reverse(value.begin(), value.end()); 
 
     return NewSharedPtr<ValueExpression>(ExpressionValueType::String, value);
 }

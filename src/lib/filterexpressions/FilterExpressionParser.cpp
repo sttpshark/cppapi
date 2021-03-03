@@ -23,7 +23,6 @@
 
 // ReSharper disable CppClangTidyClangDiagnosticExitTimeDestructors
 // ReSharper disable CppClangTidyClangDiagnosticCoveredSwitchDefault
-#include <boost/algorithm/cxx11/sort.hpp>
 #include "FilterExpressionParser.h"
 #include "tree/ParseTreeWalker.h"
 #include "../Nullable.h"
@@ -1272,7 +1271,7 @@ vector<DataRowPtr> FilterExpressionParser::Select(const ExpressionTreePtr& expre
 
     if (!matchedRows.empty() && !expressionTree->OrderByTerms.empty())
     {
-        std::ranges::sort(matchedRows, [expressionTree](const DataRowPtr& leftMatchedRow, const DataRowPtr& rightMatchedRow)
+        std::sort(matchedRows.begin(), matchedRows.end(), [expressionTree](const DataRowPtr& leftMatchedRow, const DataRowPtr& rightMatchedRow)
         {
             for (auto& orderByTerm : expressionTree->OrderByTerms)
             {
