@@ -28,7 +28,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include <boost/algorithm/cxx11/all_of.hpp>
 #define BOOST_ALLOW_DEPRECATED_HEADERS  // NOLINT(clang-diagnostic-unused-macros)
 #include <boost/uuid/uuid_generators.hpp>
 
@@ -123,7 +122,7 @@ bool sttp::IsEmptyOrWhiteSpace(const string& value)
     if (value.empty())
         return true;
 
-    return ranges::all_of(value, [](const char c)
+    return std::ranges::all_of(value, [](const char c)
     {
         return isspace(c);
     });

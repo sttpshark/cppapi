@@ -1272,7 +1272,7 @@ vector<DataRowPtr> FilterExpressionParser::Select(const ExpressionTreePtr& expre
 
     if (!matchedRows.empty() && !expressionTree->OrderByTerms.empty())
     {
-        ranges::sort(matchedRows, [expressionTree](const DataRowPtr& leftMatchedRow, const DataRowPtr& rightMatchedRow)
+        std::ranges::sort(matchedRows, [expressionTree](const DataRowPtr& leftMatchedRow, const DataRowPtr& rightMatchedRow)
         {
             for (auto& orderByTerm : expressionTree->OrderByTerms)
             {
