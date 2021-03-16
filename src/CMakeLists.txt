@@ -1,7 +1,7 @@
 #******************************************************************************************************
 #  CMakeLists.txt - Gbtc
 #
-#  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+#  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 #
 #  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 #  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -423,13 +423,20 @@ add_definitions(
 )
 
 # Define compile flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -ftabstop=4 -finput-charset=UTF-8 -fextended-identifiers -Wno-attributes")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -ftabstop=4 -finput-charset=UTF-8 -fextended-identifiers -Wno-attributes")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 
+# Added to Build STTP library, locally built boost_1._71_0 as spec
+SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "/app/boost_1_71_0/boost")
+SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "/app/boost_1_71_0/boost/lib")
+SET(BOOST_ROOT "/app/boost_1_71_0")
+SET(BOOST_INCLUDE_DIR "/app/boost_1_71_0/boost")
+SET(BOOST_LIBRARY_DIR "/app/boost_1_71_0/boost/lib")
+find_package(Boost 1.71.0 REQUIRED COMPONENTS atomic chrono date_time iostreams thread system filesystem)
 # Build STTP library
 add_library (sttp ${STTP_SOURCE_FILES})
 target_link_libraries (sttp pthread m z bz2 boost_system boost_thread boost_date_time boost_iostreams)
@@ -457,6 +464,13 @@ target_link_libraries (SimpleSubscribe sttp)
 # AdvancedSubscribe sample
 add_executable (AdvancedSubscribe EXCLUDE_FROM_ALL samples/AdvancedSubscribe/AdvancedSubscribe.cpp)
 target_link_libraries (AdvancedSubscribe sttp)
+
+# openPDC samples
+add_executable (subscribe EXCLUDE_FROM_ALL samples/openPDCSubscribe/AdvancedSubscribe.cpp)
+target_link_libraries (subscribe sttp)
+
+add_executable (publish EXCLUDE_FROM_ALL samples/openPDCPublish/AdvancedPublish.cpp samples/openPDCPublish/GenHistory.cpp samples/openPDCPublish/TemporalSubscriber.cpp)
+target_link_libraries (publish sttp)
 
 # AverageFrequencyCalculator sample
 add_executable (AverageFrequencyCalculator EXCLUDE_FROM_ALL samples/AverageFrequencyCalculator/AverageFrequencyCalculator.cpp)
