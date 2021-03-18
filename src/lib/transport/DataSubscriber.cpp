@@ -32,6 +32,10 @@
 #include "../Convert.h"
 #include "../EndianConverter.h"
 #include "../Version.h"
+#include <functional>
+#include <iostream>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 
 using namespace std;
 using namespace boost;
@@ -170,11 +174,18 @@ int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionI
         return ConnectCanceled;
 
     subscriber.SetSubscriptionInfo(info);
-    return Connect(subscriber, false);
+    return Connect(subscriber, false, "");
+}
+
+int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionInfo& info, const string& cert_file) {
+    if (m_cancel)
+        return ConnectCanceled;
+    subscriber.SetSubscriptionInfo(info);
+    return Connect(subscriber, false, cert_file);
 }
 
 // Begin connection sequence.
-int SubscriberConnector::Connect(DataSubscriber& subscriber, bool autoReconnecting)
+int SubscriberConnector::Connect(DataSubscriber& subscriber, bool autoReconnecting, const string& cert_file)
 {
     if (m_autoReconnect)
         subscriber.RegisterAutoReconnectCallback(&AutoReconnect);
@@ -200,7 +211,7 @@ int SubscriberConnector::Connect(DataSubscriber& subscriber, bool autoReconnecti
             if (subscriber.m_disposing)
                 return ConnectCanceled;
 
-            subscriber.Connect(m_hostname, m_port, autoReconnecting);
+            subscriber.Connect(m_hostname, m_port, autoReconnecting, cert_file);
             
             connected = true;
             break;
@@ -392,6 +403,8 @@ DataSubscriber::DataSubscriber() :
     m_tsscResetRequested(false),
     m_tsscSequenceNumber(0),
     m_commandChannelSocket(m_commandChannelService),
+    m_commandContext(boost::asio::ssl::context::sslv23),
+    m_commandSecureChannelSocket(m_commandChannelService, m_commandContext),
     m_readBuffer(Common::MaxPacketSize),
     m_writeBuffer(Common::MaxPacketSize),
     m_dataChannelSocket(m_dataChannelService)
@@ -1243,14 +1256,14 @@ void DataSubscriber::SetSubscriptionInfo(const SubscriptionInfo& info)
 
 // Synchronously connects to publisher.
 // public:
-void DataSubscriber::Connect(const string& hostname, const uint16_t port)
+void DataSubscriber::Connect(const string& hostname, const uint16_t port, const string& cert_file)
 {
     // User requests to connect are not an auto-reconnect attempt
-    Connect(hostname, port, false);
+    Connect(hostname, port, false, cert_file);
 }
 
 // private:
-void DataSubscriber::Connect(const string& hostname, const uint16_t port, const bool autoReconnecting)
+void DataSubscriber::Connect(const string& hostname, const uint16_t port, const bool autoReconnecting, const string cert_file)
 {
     if (m_connected)
         throw SubscriberException("Subscriber is already connected; disconnect first");
@@ -1271,27 +1284,35 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
 
     m_connector.SetConnectionRefused(false);
 
-    const TcpEndPoint hostEndpoint = connect(m_commandChannelSocket, resolver.resolve(dnsQuery), error);
+    // TLS Connection in development
+    string f = getenv("CERT_FILE");
+    if (f) {
 
-    if (error)
-        throw SystemError(error);
+    } else {
+        const TcpEndPoint hostEndpoint = connect(m_commandChannelSocket, resolver.resolve(dnsQuery), error);
 
-    if (!m_commandChannelSocket.is_open())
-        throw SubscriberException("Failed to connect to host");
+        if (error)
+            throw SystemError(error);
 
-    m_hostAddress = hostEndpoint.address();
+        if (!m_commandChannelSocket.is_open())
+            throw SubscriberException("Failed to connect to host");
 
-#if BOOST_LEGACY
-    m_commandChannelService.reset();
-#else
-    m_commandChannelService.restart();
-#endif
+        m_hostAddress = hostEndpoint.address();
 
-    m_callbackThread = Thread([this]{ RunCallbackThread(); });
-    m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
-    m_connected = true;
+        #if BOOST_LEGACY
+            m_commandChannelService.reset();
+        #else
+            m_commandChannelService.restart();
+        #endif
 
-    SendOperationalModes();
+        // If m_commandSecureChannelSocket is used then the handshake was successful
+
+        m_callbackThread = Thread([this]{ RunCallbackThread(); });
+        m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
+        m_connected = true;
+
+        SendOperationalModes();
+    }
 }
 
 // Disconnects from the publisher.
