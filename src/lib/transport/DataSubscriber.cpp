@@ -33,7 +33,6 @@
 #include "../EndianConverter.h"
 #include "../Version.h"
 #include <functional>
-#include <iostream>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 
@@ -941,6 +940,23 @@ void DataSubscriber::ParseCompactMeasurements(uint8_t* data, uint32_t offset, co
     }
 }
 
+bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx)
+{
+    // The verify callback can be used to check whether the certificate that is
+    // being presented is valid for the peer. For example, RFC 2818 describes
+    // the steps involved in doing this for HTTPS. Consult the OpenSSL
+    // documentation for more details. Note that the callback is called once
+    // for each certificate in the certificate chain, starting from the root
+    // certificate authority.
+
+    // In this example we will simply print the certificate's subject name.
+    char subject_name[256];
+    X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+    X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+
+    return preverified;
+}
+
 SignalIndexCache* DataSubscriber::AddDispatchReference(SignalIndexCachePtr signalIndexCacheRef) // NOLINT
 {
     SignalIndexCache* signalIndexCachePtr = signalIndexCacheRef.get();
@@ -1290,13 +1306,13 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
         try {
             m_context.load_verify_file(f);
             m_commandChannelSocket.set_verify_mode(ssl::verify_peer);
-            m_commandChannelSocket.set_verify_callback([&](bool b, context c){ return this->verify_certificate(b, c););
-            async_connect(m_commandChannelSocket.lowest_layer, resolver.resolve(dnsQuery), m_udpPort),
+            m_commandChannelSocket.set_verify_callback([&](bool b, context c){ return this->VerifyCertificate(b, c););
+            async_connect(m_commandChannelSocket.lowest_layer(), resolver.resolve(dnsQuery), m_udpPort),
             [this](const system::error_code& error,const tcp::endpoint& /*endpoint*/)
             {
                 if (!error)
                 {
-                    m_commandChannelSocket.async_hadnshake(boost::asio::ssl::stream_base::client,
+                    m_commandChannelSocket.async_handshake(boost::asio::ssl::stream_base::client,
                     [this](const boost::system::error_code& error)
                     {
                         if (!error)
@@ -1311,6 +1327,11 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
                             #else
                                 m_commandChannelService.restart();
                             #endif
+                            m_callbackThread = Thread([this]{ RunCallbackThread(); });
+                            m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
+                            m_connected = true;
+
+                            SendOperationalModes();
                         }
                         else
                         {
@@ -1343,12 +1364,12 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
             m_commandChannelService.restart();
         #endif
 
-    }
-    m_callbackThread = Thread([this]{ RunCallbackThread(); });
-    m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
-    m_connected = true;
+        m_callbackThread = Thread([this]{ RunCallbackThread(); });
+        m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
+        m_connected = true;
 
-    SendOperationalModes();
+        SendOperationalModes();
+    }
 }
 
 // Disconnects from the publisher.

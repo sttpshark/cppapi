@@ -276,6 +276,7 @@ namespace transport
         void HandleDataPacket(uint8_t* data, uint32_t offset, uint32_t length);
         void ParseTSSCMeasurements(uint8_t* data, uint32_t offset, uint32_t length, std::vector<MeasurementPtr>& measurements);
         void ParseCompactMeasurements(uint8_t* data, uint32_t offset, uint32_t length, bool includeTime, bool useMillisecondResolution, int64_t frameLevelTimestamp, std::vector<MeasurementPtr>& measurements);
+        bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx);
 
         SignalIndexCache* AddDispatchReference(SignalIndexCachePtr signalIndexCacheRef);
         SignalIndexCachePtr ReleaseDispatchReference(SignalIndexCache* signalIndexCachePtr);

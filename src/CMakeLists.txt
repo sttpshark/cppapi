@@ -1,7 +1,7 @@
 #******************************************************************************************************
 #  CMakeLists.txt - Gbtc
 #
-#  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+#  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 #
 #  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 #  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -497,4 +497,15 @@ add_custom_target (samples DEPENDS
     FilterExpressionTests
     SimplePublish
     AdvancedPublish
+)
+
+######################
+# EXAMPLE EXECUTABLES #
+######################
+# AdvancedSubscribe sample
+add_executable (openPDCSubscribe EXCLUDE_FROM_ALL examples/AdvancedSubscribe/AdvancedSubscribe.cpp)
+target_link_libraries (openPDCSubscribe sttp)
+
+add_custom_target (examples DEPENDS
+    openPDCSubscribe
 )
