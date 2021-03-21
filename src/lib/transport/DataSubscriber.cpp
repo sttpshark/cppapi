@@ -1287,7 +1287,45 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
     // TLS Connection in development
     string f = getenv("CERT_FILE");
     if (f) {
+        try {
+            m_context.load_verify_file(f);
+            m_commandChannelSocket.set_verify_mode(ssl::verify_peer);
+            m_commandChannelSocket.set_verify_callback([&](bool b, context c){ return this->verify_certificate(b, c););
+            async_connect(m_commandChannelSocket.lowest_layer, resolver.resolve(dnsQuery), m_udpPort),
+            [this](const system::error_code& error,const tcp::endpoint& /*endpoint*/)
+            {
+                if (!error)
+                {
+                    m_commandChannelSocket.async_hadnshake(boost::asio::ssl::stream_base::client,
+                    [this](const boost::system::error_code& error)
+                    {
+                        if (!error)
+                        {
+                            if (!m_commandChannelSocket.is_open())
+                                throw SubscriberException("Failed to connect to host");
 
+                            m_hostAddress = hostEndpoint.address();
+
+                            #if BOOST_LEGACY
+                                m_commandChannelService.reset();
+                            #else
+                                m_commandChannelService.restart();
+                            #endif
+                        }
+                        else
+                        {
+                            throw SubscriberException("Handshake failed: " + error.message());
+                        }
+                    });
+                }
+                else
+                {
+                    throw SubscriberException("Connect failed: " + error.message());
+                }
+            });
+        } catch {
+            throw SubscriberException(e.what());
+        }
     } else {
         const TcpEndPoint hostEndpoint = connect(m_commandChannelSocket, resolver.resolve(dnsQuery), error);
 
@@ -1305,14 +1343,12 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
             m_commandChannelService.restart();
         #endif
 
-        // If m_commandSecureChannelSocket is used then the handshake was successful
-
-        m_callbackThread = Thread([this]{ RunCallbackThread(); });
-        m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
-        m_connected = true;
-
-        SendOperationalModes();
     }
+    m_callbackThread = Thread([this]{ RunCallbackThread(); });
+    m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
+    m_connected = true;
+
+    SendOperationalModes();
 }
 
 // Disconnects from the publisher.
