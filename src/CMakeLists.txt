@@ -423,16 +423,23 @@ add_definitions(
 )
 
 # Define compile flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -ftabstop=4 -finput-charset=UTF-8 -fextended-identifiers -Wno-attributes")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -ftabstop=4 -finput-charset=UTF-8 -fextended-identifiers -Wno-attributes")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 
+# Added to Build STTP library, locally built boost_1._71_0 as spec
+SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "/app/boost_1_71_0/boost")
+SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "/app/boost_1_71_0/boost/lib")
+SET(BOOST_ROOT "/app/boost_1_71_0")
+SET(BOOST_INCLUDE_DIR "/app/boost_1_71_0/boost")
+SET(BOOST_LIBRARY_DIR "/app/boost_1_71_0/boost/lib")
+find_package(Boost 1.71.0 REQUIRED COMPONENTS atomic chrono date_time iostreams thread system filesystem)
 # Build STTP library
 add_library (sttp ${STTP_SOURCE_FILES})
-target_link_libraries (sttp pthread m z bz2 boost_system boost_thread boost_date_time boost_iostreams)
+target_link_libraries (sttp pthread m z bz2 crypto ssl boost_atomic boost_chrono boost_date_time boost_iostreams boost_thread boost_system boost_filesystem)
 
 # Install headers and library
 install (DIRECTORY ${PROJECT_BINARY_DIR}/${HEADER_OUTPUT_DIRECTORY} DESTINATION include)
