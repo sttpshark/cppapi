@@ -233,6 +233,7 @@ namespace transport
         IOContext m_commandChannelService;
         TcpSocket m_commandChannelSocket;
         SslContext m_commandContext;
+        bool ssl_verified;
         SslTcpSocket m_commandSecureChannelSocket;
         std::vector<uint8_t> m_readBuffer;
         std::vector<uint8_t> m_writeBuffer;

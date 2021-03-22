@@ -403,6 +403,7 @@ DataSubscriber::DataSubscriber() :
     m_tsscSequenceNumber(0),
     m_commandChannelSocket(m_commandChannelService),
     m_commandContext(boost::asio::ssl::context::sslv23),
+    ssl_verified(false),
     m_commandContextCertFile(""),
     m_commandSecureChannelSocket(m_commandChannelService, m_commandContext),
     m_readBuffer(Common::MaxPacketSize),
@@ -455,10 +456,17 @@ void DataSubscriber::RunCallbackThread()
 // exception of data packets which may or may not be handled by this thread.
 void DataSubscriber::RunCommandChannelResponseThread()
 {
-    async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
-    {
-        ReadPayloadHeader(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_read(m_commandSecureChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    } else {
+        async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    }
 
     m_commandChannelService.run();
 }
@@ -498,10 +506,17 @@ void DataSubscriber::ReadPayloadHeader(const ErrorCode& error, const size_t byte
     // Read packet (payload body)
     // This read method is guaranteed not to return until the
     // requested size has been read or an error has occurred.
-    async_read(m_commandChannelSocket, buffer(m_readBuffer, packetSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
-    {
-        ReadPacket(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_read(m_commandSecureChannelSocket, buffer(m_readBuffer, packetSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPacket(error, bytesTransferred);
+        });
+    } else {
+        async_read(m_commandChannelSocket, buffer(m_readBuffer, packetSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPacket(error, bytesTransferred);
+        });
+    }
 }
 
 // Callback for async read of packets.
@@ -535,10 +550,17 @@ void DataSubscriber::ReadPacket(const ErrorCode& error, const size_t bytesTransf
     ProcessServerResponse(&m_readBuffer[0], 0, ConvertUInt32(bytesTransferred));
 
     // Read next payload header
-    async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
-    {
-        ReadPayloadHeader(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_read(m_commandSecureChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    } else {
+        async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    }
 }
 
 // If the user defines a separate UDP channel for their
@@ -1323,6 +1345,7 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, bool a
                                 throw SubscriberException("Failed to connect to host");
 
                             m_hostAddress = endpoint.address();
+                            ssl_verified = true;
 
                             #if BOOST_LEGACY
                                 m_commandChannelService.reset();
@@ -1636,10 +1659,17 @@ void DataSubscriber::SendServerCommand(const uint8_t commandCode, const uint8_t*
             m_writeBuffer[5 + i] = data[offset + i];
     }
 
-    async_write(m_commandChannelSocket, buffer(m_writeBuffer, commandBufferSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
-    {
-        WriteHandler(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_write(m_commandSecureChannelSocket, buffer(m_writeBuffer, commandBufferSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            WriteHandler(error, bytesTransferred);
+        });
+    } else {
+        async_write(m_commandChannelSocket, buffer(m_writeBuffer, commandBufferSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            WriteHandler(error, bytesTransferred);
+        });
+    }
 }
 
 void DataSubscriber::WriteHandler(const ErrorCode& error, const size_t bytesTransferred)
