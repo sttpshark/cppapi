@@ -439,7 +439,7 @@ SET(BOOST_LIBRARY_DIR "/app/boost_1_71_0/boost/lib")
 find_package(Boost 1.71.0 REQUIRED COMPONENTS atomic chrono date_time iostreams thread system filesystem)
 # Build STTP library
 add_library (sttp ${STTP_SOURCE_FILES})
-target_link_libraries (sttp pthread m z bz2 crypto ssl boost_atomic boost_chrono boost_date_time boost_iostreams boost_thread boost_system boost_filesystem)
+target_link_libraries (sttp pthread m z bz2 crypto ssl Boost::atomic Boost::chrono Boost::date_time Boost::iostreams Boost::thread Boost::system Boost::filesystem)
 
 # Install headers and library
 install (DIRECTORY ${PROJECT_BINARY_DIR}/${HEADER_OUTPUT_DIRECTORY} DESTINATION include)
