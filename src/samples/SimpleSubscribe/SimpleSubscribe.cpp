@@ -1,7 +1,7 @@
 //******************************************************************************************************
 //  SimpleSubscribe.cpp - Gbtc
 //
-//  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+//  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 //
 //  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 //  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -108,7 +108,7 @@ bool RunSubscriber(const string& hostname, uint16_t port)
 
     try
     {
-        Subscriber->Connect(hostname, port);
+        Subscriber->Connect(hostname, port, "");
         connected = true;
     }
     catch (SubscriberException& ex)

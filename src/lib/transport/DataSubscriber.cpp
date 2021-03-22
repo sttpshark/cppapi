@@ -32,6 +32,9 @@
 #include "../Convert.h"
 #include "../EndianConverter.h"
 #include "../Version.h"
+#include <functional>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 
 using namespace std;
 using namespace boost;
@@ -142,7 +145,7 @@ void SubscriberConnector::AutoReconnect(DataSubscriber* subscriber)
         if (connector.m_cancel || subscriber->m_disposing)
             return;
 
-        if (connector.Connect(*subscriber, true) == ConnectCanceled)
+        if (connector.Connect(*subscriber, true, subscriber->m_commandContextCertFile) == ConnectCanceled)
             return;
 
         // Notify the user that reconnect attempt was completed.
@@ -170,11 +173,18 @@ int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionI
         return ConnectCanceled;
 
     subscriber.SetSubscriptionInfo(info);
-    return Connect(subscriber, false);
+    return Connect(subscriber, false, string());
+}
+
+int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionInfo& info, const string& cert_file) {
+    if (m_cancel)
+        return ConnectCanceled;
+    subscriber.SetSubscriptionInfo(info);
+    return Connect(subscriber, false, cert_file);
 }
 
 // Begin connection sequence.
-int SubscriberConnector::Connect(DataSubscriber& subscriber, bool autoReconnecting)
+int SubscriberConnector::Connect(DataSubscriber& subscriber, bool autoReconnecting, const string& cert_file)
 {
     if (m_autoReconnect)
         subscriber.RegisterAutoReconnectCallback(&AutoReconnect);
@@ -200,7 +210,7 @@ int SubscriberConnector::Connect(DataSubscriber& subscriber, bool autoReconnecti
             if (subscriber.m_disposing)
                 return ConnectCanceled;
 
-            subscriber.Connect(m_hostname, m_port, autoReconnecting);
+            subscriber.Connect(m_hostname, m_port, autoReconnecting, cert_file);
             
             connected = true;
             break;
@@ -392,6 +402,10 @@ DataSubscriber::DataSubscriber() :
     m_tsscResetRequested(false),
     m_tsscSequenceNumber(0),
     m_commandChannelSocket(m_commandChannelService),
+    m_commandContext(boost::asio::ssl::context::sslv23),
+    ssl_verified(false),
+    m_commandContextCertFile(""),
+    m_commandSecureChannelSocket(m_commandChannelService, m_commandContext),
     m_readBuffer(Common::MaxPacketSize),
     m_writeBuffer(Common::MaxPacketSize),
     m_dataChannelSocket(m_dataChannelService)
@@ -442,10 +456,17 @@ void DataSubscriber::RunCallbackThread()
 // exception of data packets which may or may not be handled by this thread.
 void DataSubscriber::RunCommandChannelResponseThread()
 {
-    async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
-    {
-        ReadPayloadHeader(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_read(m_commandSecureChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    } else {
+        async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    }
 
     m_commandChannelService.run();
 }
@@ -485,10 +506,17 @@ void DataSubscriber::ReadPayloadHeader(const ErrorCode& error, const size_t byte
     // Read packet (payload body)
     // This read method is guaranteed not to return until the
     // requested size has been read or an error has occurred.
-    async_read(m_commandChannelSocket, buffer(m_readBuffer, packetSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
-    {
-        ReadPacket(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_read(m_commandSecureChannelSocket, buffer(m_readBuffer, packetSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPacket(error, bytesTransferred);
+        });
+    } else {
+        async_read(m_commandChannelSocket, buffer(m_readBuffer, packetSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPacket(error, bytesTransferred);
+        });
+    }
 }
 
 // Callback for async read of packets.
@@ -522,10 +550,17 @@ void DataSubscriber::ReadPacket(const ErrorCode& error, const size_t bytesTransf
     ProcessServerResponse(&m_readBuffer[0], 0, ConvertUInt32(bytesTransferred));
 
     // Read next payload header
-    async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
-    {
-        ReadPayloadHeader(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_read(m_commandSecureChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    } else {
+        async_read(m_commandChannelSocket, buffer(m_readBuffer, Common::PayloadHeaderSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred) // NOLINT
+        {
+            ReadPayloadHeader(error, bytesTransferred);
+        });
+    }
 }
 
 // If the user defines a separate UDP channel for their
@@ -928,6 +963,23 @@ void DataSubscriber::ParseCompactMeasurements(uint8_t* data, uint32_t offset, co
     }
 }
 
+bool DataSubscriber::VerifyCertificate(bool preverified, auto& ctx)
+{
+    // The verify callback can be used to check whether the certificate that is
+    // being presented is valid for the peer. For example, RFC 2818 describes
+    // the steps involved in doing this for HTTPS. Consult the OpenSSL
+    // documentation for more details. Note that the callback is called once
+    // for each certificate in the certificate chain, starting from the root
+    // certificate authority.
+
+    // In this example we will simply print the certificate's subject name.
+    char subject_name[256];
+    X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+    X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+
+    return preverified;
+}
+
 SignalIndexCache* DataSubscriber::AddDispatchReference(SignalIndexCachePtr signalIndexCacheRef) // NOLINT
 {
     SignalIndexCache* signalIndexCachePtr = signalIndexCacheRef.get();
@@ -1243,14 +1295,14 @@ void DataSubscriber::SetSubscriptionInfo(const SubscriptionInfo& info)
 
 // Synchronously connects to publisher.
 // public:
-void DataSubscriber::Connect(const string& hostname, const uint16_t port)
+void DataSubscriber::Connect(const string& hostname, const uint16_t port, const string& cert_file)
 {
     // User requests to connect are not an auto-reconnect attempt
-    Connect(hostname, port, false);
+    Connect(hostname, port, false, cert_file);
 }
 
 // private:
-void DataSubscriber::Connect(const string& hostname, const uint16_t port, const bool autoReconnecting)
+void DataSubscriber::Connect(const string& hostname, const uint16_t port, bool autoReconnecting, const string& cert_file)
 {
     if (m_connected)
         throw SubscriberException("Subscriber is already connected; disconnect first");
@@ -1271,27 +1323,78 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
 
     m_connector.SetConnectionRefused(false);
 
-    const TcpEndPoint hostEndpoint = connect(m_commandChannelSocket, resolver.resolve(dnsQuery), error);
+    // TLS Connection in development
+    const char* file = getenv(cert_file.c_str());
+    m_commandContextCertFile = string(file);
+    if (file) {
+        try {
+            m_commandContext.load_verify_file(file);
+            m_commandSecureChannelSocket.set_verify_mode(ssl::verify_peer);
+            m_commandSecureChannelSocket.set_verify_callback([&](bool b, auto& c){ return this->VerifyCertificate(b, c);});
+            async_connect(m_commandSecureChannelSocket.lowest_layer(), resolver.resolve(dnsQuery),
+            [this](const system::error_code& error,const tcp::endpoint& endpoint)
+            {
+                if (!error)
+                {
+                    m_commandSecureChannelSocket.async_handshake(boost::asio::ssl::stream_base::client,
+                    [this, endpoint](const boost::system::error_code& error)
+                    {
+                        if (!error)
+                        {
+                            if (!m_commandSecureChannelSocket.lowest_layer().is_open())
+                                throw SubscriberException("Failed to connect to host");
 
-    if (error)
-        throw SystemError(error);
+                            m_hostAddress = endpoint.address();
+                            ssl_verified = true;
 
-    if (!m_commandChannelSocket.is_open())
-        throw SubscriberException("Failed to connect to host");
+                            #if BOOST_LEGACY
+                                m_commandChannelService.reset();
+                            #else
+                                m_commandChannelService.restart();
+                            #endif
+                            m_callbackThread = Thread([this]{ RunCallbackThread(); });
+                            m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
+                            m_connected = true;
 
-    m_hostAddress = hostEndpoint.address();
+                            SendOperationalModes();
+                        }
+                        else
+                        {
+                            throw SubscriberException("Handshake failed: " + error.message());
+                        }
+                    });
+                }
+                else
+                {
+                    throw SubscriberException("Connect failed: " + error.message());
+                }
+            });
+        } catch (std::exception& e) {
+            throw SubscriberException(e.what());
+        }
+    } else {
+        const TcpEndPoint hostEndpoint = connect(m_commandChannelSocket, resolver.resolve(dnsQuery), error);
 
-#if BOOST_LEGACY
-    m_commandChannelService.reset();
-#else
-    m_commandChannelService.restart();
-#endif
+        if (error)
+            throw SystemError(error);
 
-    m_callbackThread = Thread([this]{ RunCallbackThread(); });
-    m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
-    m_connected = true;
+        if (!m_commandChannelSocket.is_open())
+            throw SubscriberException("Failed to connect to host");
 
-    SendOperationalModes();
+        m_hostAddress = hostEndpoint.address();
+
+        #if BOOST_LEGACY
+            m_commandChannelService.reset();
+        #else
+            m_commandChannelService.restart();
+        #endif
+
+        m_callbackThread = Thread([this]{ RunCallbackThread(); });
+        m_commandChannelResponseThread = Thread([this]{ RunCommandChannelResponseThread(); });
+        m_connected = true;
+
+        SendOperationalModes();
+    }
 }
 
 // Disconnects from the publisher.
@@ -1556,10 +1659,17 @@ void DataSubscriber::SendServerCommand(const uint8_t commandCode, const uint8_t*
             m_writeBuffer[5 + i] = data[offset + i];
     }
 
-    async_write(m_commandChannelSocket, buffer(m_writeBuffer, commandBufferSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
-    {
-        WriteHandler(error, bytesTransferred);
-    });
+    if (ssl_verified) {
+        async_write(m_commandSecureChannelSocket, buffer(m_writeBuffer, commandBufferSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            WriteHandler(error, bytesTransferred);
+        });
+    } else {
+        async_write(m_commandChannelSocket, buffer(m_writeBuffer, commandBufferSize), [this]<typename T0, typename T1>(T0&& error, T1&& bytesTransferred)
+        {
+            WriteHandler(error, bytesTransferred);
+        });
+    }
 }
 
 void DataSubscriber::WriteHandler(const ErrorCode& error, const size_t bytesTransferred)
