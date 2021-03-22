@@ -1,7 +1,7 @@
 //******************************************************************************************************
 //  AdvancedSubscribe.cpp - Gbtc
 //
-//  Copyright © 2019, Grid Protection Alliance.  All Rights Reserved.
+//  Copyright ï¿½ 2019, Grid Protection Alliance.  All Rights Reserved.
 //
 //  Licensed to the Grid Protection Alliance (GPA) under one or more contributor license agreements. See
 //  the NOTICE file distributed with this work for additional information regarding copyright ownership.
@@ -23,18 +23,20 @@
 
 #include "../../lib/Convert.h"
 #include "../../lib/transport/DataSubscriber.h"
+#include <boost/uuid/uuid_io.hpp>
 #include <iostream>
 
 using namespace std;
 using namespace sttp;
 using namespace sttp::transport;
 
-DataSubscriber* Subscriber;
+DataSubscriber* Subscriber1;
 SubscriptionInfo Info;
 
 // Create helper objects for subscription.
 void SetupSubscriberConnector(SubscriberConnector& connector, const string& hostname, uint16_t port);
-SubscriptionInfo CreateSubscriptionInfo();
+SubscriptionInfo CreateSubscriptionInfo1();
+SubscriptionInfo CreateSubscriptionInfo2();
 
 // Handlers for subscriber callbacks.
 void Resubscribe(DataSubscriber* source);
@@ -74,7 +76,8 @@ int main(int argc, char* argv[])
     stringstream(argv[2]) >> port;
 
     // Maintain the life-time of DataSubscriber within main
-    Subscriber = new DataSubscriber();
+    Subscriber1 = new DataSubscriber();
+    //Subscriber2 = new DataSubscriber();
 
     // Run the subscriber.
     RunSubscriber(hostname, port);
@@ -84,10 +87,10 @@ int main(int argc, char* argv[])
     getline(cin, line);
 
     // Disconnect the subscriber to stop background threads.
-    Subscriber->Disconnect();
+    Subscriber1->Disconnect();
     cout << "Disconnected." << endl;
 
-    delete Subscriber;
+    delete Subscriber1;
 
     return 0;
 }
@@ -99,24 +102,24 @@ int main(int argc, char* argv[])
 //   - Subscribe
 void RunSubscriber(const string& hostname, uint16_t port)
 {
-    SubscriberConnector& connector = Subscriber->GetSubscriberConnector();
+    SubscriberConnector& connector = Subscriber1->GetSubscriberConnector();
 
     // Set up helper objects
     SetupSubscriberConnector(connector, hostname, port);
-    Info = CreateSubscriptionInfo();
+    Info = CreateSubscriptionInfo1();
 
     // Register callbacks
-    Subscriber->RegisterStatusMessageCallback(&DisplayStatusMessage);
-    Subscriber->RegisterErrorMessageCallback(&DisplayErrorMessage);
-    Subscriber->RegisterNewMeasurementsCallback(&ProcessMeasurements);
+    Subscriber1->RegisterStatusMessageCallback(&DisplayStatusMessage);
+    Subscriber1->RegisterErrorMessageCallback(&DisplayErrorMessage);
+    Subscriber1->RegisterNewMeasurementsCallback(&ProcessMeasurements);
 
     cout << endl << "Connecting to " << hostname << ":" << port << "..." << endl << endl;
 
     // Connect and subscribe to publisher
-    if (connector.Connect(*Subscriber, Info))
+    if (connector.Connect(*Subscriber1, Info, ""))
     {
         cout << "Connected! Subscribing to data..." << endl << endl;
-        Subscriber->Subscribe();
+        Subscriber1->Subscribe();
     }
     else
     {
@@ -124,7 +127,7 @@ void RunSubscriber(const string& hostname, uint16_t port)
     }
 }
 
-SubscriptionInfo CreateSubscriptionInfo()
+SubscriptionInfo CreateSubscriptionInfo1()
 {
     // SubscriptionInfo is a helper object which allows the user
     // to set up their subscription and reuse subscription settings.
@@ -141,10 +144,10 @@ SubscriptionInfo CreateSubscriptionInfo()
     //                        "25355a7b-2a9d-4ef2-99ba-4dd791461379";
     //
     // - Filter pattern -
-    //info.FilterExpression = "FILTER ActiveMeasurements WHERE ID LIKE 'PPA:*'";
+    info.FilterExpression = "FILTER ActiveMeasurements WHERE Device = 'SHELBY' ORDER BY PhasorID = 1";
     //info.FilterExpression = "FILTER ActiveMeasurements WHERE Device = 'SHELBY' AND SignalType = 'FREQ'";
 
-    info.FilterExpression = "PPA:1;PPA:2;PPA:3;PPA:4;PPA:5;PPA:6;PPA:7;PPA:8;PPA:9;PPA:10;PPA:11;PPA:12;PPA:13;PPA:14";
+    //info.FilterExpression = "PPA:1;PPA:2;PPA:3;PPA:4;PPA:5;PPA:6;PPA:7;PPA:8;PPA:9;PPA:10;PPA:11;PPA:12;PPA:13;PPA:14";
 
     // To set up a remotely synchronized subscription, set this flag
     // to true and add the framesPerSecond parameter to the
@@ -155,16 +158,16 @@ SubscriptionInfo CreateSubscriptionInfo()
     //info.RemotelySynchronized = true;
     //info.ExtraConnectionStringParameters = "framesPerSecond=30;timeResolution=10000;downsamplingMethod=Closest";
 
-    info.Throttled = false;
+    // info.Throttled = false;
 
-    info.UdpDataChannel = true;
-    info.DataChannelLocalPort = 9600;
+    // info.UdpDataChannel = true;
+    // info.DataChannelLocalPort = 9600;
 
-    info.IncludeTime = true;
-    info.LagTime = 3.0;
-    info.LeadTime = 1.0;
-    info.UseLocalClockAsRealTime = false;
-    info.UseMillisecondResolution = true;
+    // info.IncludeTime = true;
+    // info.LagTime = 3.0;
+    // info.LeadTime = 1.0;
+    // info.UseLocalClockAsRealTime = false;
+    // info.UseMillisecondResolution = true;
 
     return info;
 }
@@ -178,8 +181,8 @@ void SetupSubscriberConnector(SubscriberConnector& connector, const string& host
 
     connector.SetHostname(hostname);
     connector.SetPort(port);
-    connector.SetMaxRetries(5);
-    connector.SetRetryInterval(1500);
+    connector.SetMaxRetries(20);
+    connector.SetRetryInterval(10000);
     connector.SetAutoReconnect(true);
 }
 
@@ -208,7 +211,7 @@ void ProcessMeasurements(DataSubscriber* source, const vector<MeasurementPtr>& m
         message << "\tPoint\tValue" << endl;
 
         for (const auto& measurement : measurements)
-            message << '\t' << measurement->ID << '\t' << measurement->Value << endl;
+            message << '\t' << measurement->ID << '\t' << measurement->Value << '\t' << measurement->Source << '\t' << measurement->SignalID << endl;
 
         message << endl;
 

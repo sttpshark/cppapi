@@ -33,6 +33,7 @@
 #include "../EndianConverter.h"
 #include "../Version.h"
 #include <functional>
+#include <iostream>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 
@@ -173,7 +174,7 @@ int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionI
         return ConnectCanceled;
 
     subscriber.SetSubscriptionInfo(info);
-    return Connect(subscriber, false, string());
+    return Connect(subscriber, false, string(""));
 }
 
 int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionInfo& info, const string& cert_file) {
@@ -1324,9 +1325,11 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, bool a
     m_connector.SetConnectionRefused(false);
 
     // TLS Connection in development
-    const char* file = getenv(cert_file.c_str());
-    m_commandContextCertFile = string(file);
-    if (file) {
+    cout << "evn var is " << cert_file << endl;
+    if (!cert_file.empty()) {
+        const char* file = getenv(cert_file.c_str());
+        m_commandContextCertFile = string(file);
+        cout << "file is " << file << endl;
         try {
             m_commandContext.load_verify_file(file);
             m_commandSecureChannelSocket.set_verify_mode(ssl::verify_peer);
