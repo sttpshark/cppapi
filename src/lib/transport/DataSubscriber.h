@@ -95,7 +95,7 @@ namespace transport
         // Auto-reconnect handler.
         static void AutoReconnect(DataSubscriber* subscriber);
 
-        int Connect(DataSubscriber& subscriber, bool autoReconnecting, const string& cert_file);
+        int Connect(DataSubscriber& subscriber, bool autoReconnecting, const std::string& cert_file);
 
     public:
         static constexpr int ConnectSuccess = 1;
@@ -117,7 +117,7 @@ namespace transport
 
         // Begin connection sequence
         int Connect(DataSubscriber& subscriber, const SubscriptionInfo& info);
-        int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionInfo& info, const string& cert_file);
+        int Connect(DataSubscriber& subscriber, const SubscriptionInfo& info, const std::string& cert_file);
 
         // Cancel all current and
         // future connection sequences.
@@ -171,6 +171,7 @@ namespace transport
         typedef std::function<void(DataSubscriber*, const std::vector<MeasurementPtr>&)> NewMeasurementsCallback;
         typedef std::function<void(DataSubscriber*)> ConfigurationChangedCallback;
         typedef std::function<void(DataSubscriber*)> ConnectionTerminatedCallback;
+        std::string m_commandContextCertFile;
 
     private:
         // Structure used to dispatch
@@ -276,7 +277,7 @@ namespace transport
         void HandleDataPacket(uint8_t* data, uint32_t offset, uint32_t length);
         void ParseTSSCMeasurements(uint8_t* data, uint32_t offset, uint32_t length, std::vector<MeasurementPtr>& measurements);
         void ParseCompactMeasurements(uint8_t* data, uint32_t offset, uint32_t length, bool includeTime, bool useMillisecondResolution, int64_t frameLevelTimestamp, std::vector<MeasurementPtr>& measurements);
-        bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx);
+        bool VerifyCertificate(bool preverified, auto& ctx);
 
         SignalIndexCache* AddDispatchReference(SignalIndexCachePtr signalIndexCacheRef);
         SignalIndexCachePtr ReleaseDispatchReference(SignalIndexCache* signalIndexCachePtr);
@@ -303,6 +304,7 @@ namespace transport
         void ConnectionTerminatedDispatcher();
 
         void Connect(const std::string& hostname, const uint16_t port, bool autoReconnecting, const std::string& cert_file);
+
         void Disconnect(bool joinThread, bool autoReconnecting);
         bool IsDisconnecting() const { return m_disconnecting || m_disconnected; }
 
@@ -367,7 +369,7 @@ namespace transport
         const SubscriptionInfo& GetSubscriptionInfo() const;
 
         // Synchronously connects to publisher.
-        void Connect(const std::string& hostname, uint16_t port, const std::string& cert_file);
+        void Connect(const std::string& hostname, const uint16_t port, const std::string& cert_file);
 
         // Disconnects from the publisher.
         //

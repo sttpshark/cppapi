@@ -145,7 +145,7 @@ void SubscriberConnector::AutoReconnect(DataSubscriber* subscriber)
         if (connector.m_cancel || subscriber->m_disposing)
             return;
 
-        if (connector.Connect(*subscriber, true) == ConnectCanceled)
+        if (connector.Connect(*subscriber, true, subscriber->m_commandContextCertFile) == ConnectCanceled)
             return;
 
         // Notify the user that reconnect attempt was completed.
@@ -173,7 +173,7 @@ int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionI
         return ConnectCanceled;
 
     subscriber.SetSubscriptionInfo(info);
-    return Connect(subscriber, false, "");
+    return Connect(subscriber, false, string());
 }
 
 int SubscriberConnector::Connect(DataSubscriber& subscriber, const SubscriptionInfo& info, const string& cert_file) {
@@ -403,6 +403,7 @@ DataSubscriber::DataSubscriber() :
     m_tsscSequenceNumber(0),
     m_commandChannelSocket(m_commandChannelService),
     m_commandContext(boost::asio::ssl::context::sslv23),
+    m_commandContextCertFile(""),
     m_commandSecureChannelSocket(m_commandChannelService, m_commandContext),
     m_readBuffer(Common::MaxPacketSize),
     m_writeBuffer(Common::MaxPacketSize),
@@ -940,7 +941,7 @@ void DataSubscriber::ParseCompactMeasurements(uint8_t* data, uint32_t offset, co
     }
 }
 
-bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx)
+bool DataSubscriber::VerifyCertificate(bool preverified, auto& ctx)
 {
     // The verify callback can be used to check whether the certificate that is
     // being presented is valid for the peer. For example, RFC 2818 describes
@@ -1279,7 +1280,7 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
 }
 
 // private:
-void DataSubscriber::Connect(const string& hostname, const uint16_t port, const bool autoReconnecting, const string cert_file)
+void DataSubscriber::Connect(const string& hostname, const uint16_t port, bool autoReconnecting, const string& cert_file)
 {
     if (m_connected)
         throw SubscriberException("Subscriber is already connected; disconnect first");
@@ -1301,26 +1302,27 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
     m_connector.SetConnectionRefused(false);
 
     // TLS Connection in development
-    string f = getenv("CERT_FILE");
-    if (f) {
+    const char* file = getenv(cert_file.c_str());
+    m_commandContextCertFile = string(file);
+    if (file) {
         try {
-            m_context.load_verify_file(f);
-            m_commandChannelSocket.set_verify_mode(ssl::verify_peer);
-            m_commandChannelSocket.set_verify_callback([&](bool b, context c){ return this->VerifyCertificate(b, c););
-            async_connect(m_commandChannelSocket.lowest_layer(), resolver.resolve(dnsQuery), m_udpPort),
-            [this](const system::error_code& error,const tcp::endpoint& /*endpoint*/)
+            m_commandContext.load_verify_file(file);
+            m_commandSecureChannelSocket.set_verify_mode(ssl::verify_peer);
+            m_commandSecureChannelSocket.set_verify_callback([&](bool b, auto& c){ return this->VerifyCertificate(b, c);});
+            async_connect(m_commandSecureChannelSocket.lowest_layer(), resolver.resolve(dnsQuery),
+            [this](const system::error_code& error,const tcp::endpoint& endpoint)
             {
                 if (!error)
                 {
-                    m_commandChannelSocket.async_handshake(boost::asio::ssl::stream_base::client,
-                    [this](const boost::system::error_code& error)
+                    m_commandSecureChannelSocket.async_handshake(boost::asio::ssl::stream_base::client,
+                    [this, endpoint](const boost::system::error_code& error)
                     {
                         if (!error)
                         {
-                            if (!m_commandChannelSocket.is_open())
+                            if (!m_commandSecureChannelSocket.lowest_layer().is_open())
                                 throw SubscriberException("Failed to connect to host");
 
-                            m_hostAddress = hostEndpoint.address();
+                            m_hostAddress = endpoint.address();
 
                             #if BOOST_LEGACY
                                 m_commandChannelService.reset();
@@ -1344,7 +1346,7 @@ void DataSubscriber::Connect(const string& hostname, const uint16_t port, const 
                     throw SubscriberException("Connect failed: " + error.message());
                 }
             });
-        } catch {
+        } catch (std::exception& e) {
             throw SubscriberException(e.what());
         }
     } else {
