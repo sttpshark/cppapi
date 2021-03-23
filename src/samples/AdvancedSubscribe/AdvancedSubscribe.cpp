@@ -116,7 +116,7 @@ void RunSubscriber(const string& hostname, uint16_t port)
     cout << endl << "Connecting to " << hostname << ":" << port << "..." << endl << endl;
 
     // Connect and subscribe to publisher
-    if (connector.Connect(*Subscriber1, Info, ""))
+    if (connector.Connect(*Subscriber1, Info, "CERT"))
     {
         cout << "Connected! Subscribing to data..." << endl << endl;
         Subscriber1->Subscribe();
@@ -181,8 +181,8 @@ void SetupSubscriberConnector(SubscriberConnector& connector, const string& host
 
     connector.SetHostname(hostname);
     connector.SetPort(port);
-    connector.SetMaxRetries(20);
-    connector.SetRetryInterval(10000);
+    connector.SetMaxRetries(10000);
+    connector.SetRetryInterval(100000000);
     connector.SetAutoReconnect(true);
 }
 
@@ -204,17 +204,22 @@ void ProcessMeasurements(DataSubscriber* source, const vector<MeasurementPtr>& m
     // Only display messages every few seconds
     if (showMessage)
     {
-        stringstream message;
+        stringstream message, json;
 
-        message << source->GetTotalMeasurementsReceived() << " measurements received so far..." << endl;
-        message << "Timestamp: " << ToString(measurements[0]->GetDateTime()) << endl;
-        message << "\tPoint\tValue" << endl;
+        //message << source->GetTotalMeasurementsReceived() << " measurements received so far..." << endl;
+        message << "{\t\n\tTimestamp: \"" << ToString(measurements[0]->GetDateTime()) << "\",\n";
+        json << "\tPhasors:\n\t[\n";
 
-        for (const auto& measurement : measurements)
-            message << '\t' << measurement->ID << '\t' << measurement->Value << '\t' << measurement->Source << '\t' << measurement->SignalID << endl;
-
-        message << endl;
-
+        for (const auto& measurement : measurements) {
+            if (measurement->ID == 1)
+                message << "\t\"Status\" :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\t\"SignalID\": \"" << measurement->ID << "\",\n\t\t\"Value\": \"" << measurement->Value << "\",\n\t},\n";
+            else if (measurement->ID == 2) {
+                message << "\t\"Frequency\" :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\t\"SignalID\": \"" << measurement->ID << "\",\n\t\t\"Value\": \"" << measurement->Value << "\",\n\t},\n";
+            } else {
+                json << "\t\t{\n\t\t\t\"ID\": \"" << measurement->ID << "\",\n\t\t\t\"SignalID\": \"" << measurement->SignalID << "\",\n\t\t\t\"Value\": \"" << measurement->Value << "\"\n\t\t},\n";
+            }
+        }
+        message << json.str() << "\t]\n}\n";
         cout << message.str();
     }
 }

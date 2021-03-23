@@ -230,6 +230,7 @@ namespace transport
 
         // Command channel
         Thread m_commandChannelResponseThread;
+        Thread m_commandChannelSslThread;
         IOContext m_commandChannelService;
         TcpSocket m_commandChannelSocket;
         SslContext m_commandContext;
