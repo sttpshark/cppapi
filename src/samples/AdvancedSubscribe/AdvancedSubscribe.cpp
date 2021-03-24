@@ -205,22 +205,41 @@ void ProcessMeasurements(DataSubscriber* source, const vector<MeasurementPtr>& m
     if (showMessage)
     {
         stringstream message, json;
-
-        //message << source->GetTotalMeasurementsReceived() << " measurements received so far..." << endl;
-        message << "{\t\n\tTimestamp: \"" << ToString(measurements[0]->GetDateTime()) << "\",\n";
-        json << "\tPhasors:\n\t[\n";
-
+        message << "{\t\n\tsource: \"" << ToString(measurements[0]->Source) << "\",";
+        message << "\t\n\ttimestamp: \"" << ToString(measurements[0]->Timestamp) << "\",\n";
+        
         for (const auto& measurement : measurements) {
-            if (measurement->ID == 1)
-                message << "\t\"Status\" :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\t\"SignalID\": \"" << measurement->ID << "\",\n\t\t\"Value\": \"" << measurement->Value << "\",\n\t},\n";
-            else if (measurement->ID == 2) {
-                message << "\t\"Frequency\" :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\t\"SignalID\": \"" << measurement->ID << "\",\n\t\t\"Value\": \"" << measurement->Value << "\",\n\t},\n";
+            if (measurement->ID == 1) {
+                message << "\tfrequency :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\tValue: \"" << measurement->Value << "\",\n\t},\n";
+            } else if (measurement->ID == 2) {
+                message << "\tdfdt :\n\t{\n\t\tID: \"" << measurement->SignalID <<  "\",\n\t\tValue: \"" << measurement->Value << "\",\n\t},\n";
+            } else if (measurement->ID == 3) {
+                message << "\tangle :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\tValue: \"" << measurement->Value << "\",\n\t},\n";
             } else {
-                json << "\t\t{\n\t\t\t\"ID\": \"" << measurement->ID << "\",\n\t\t\t\"SignalID\": \"" << measurement->SignalID << "\",\n\t\t\t\"Value\": \"" << measurement->Value << "\"\n\t\t},\n";
-            }
+                message << "\tmagnitude :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\tValue: \"" << measurement->Value << "\",\n\t},\n";
+            }   
         }
-        message << json.str() << "\t]\n}\n";
+        message << json.str() << "\t\n}\n";
         cout << message.str();
+        
+        // below are cory's edits: 
+        // stringstream message, json;
+
+        // //message << source->GetTotalMeasurementsReceived() << " measurements received so far..." << endl;
+        // message << "{\t\n\tTimestamp: \"" << ToString(measurements[0]->GetDateTime()) << "\",\n";
+        // json << "\tPhasors:\n\t[\n";
+
+        // for (const auto& measurement : measurements) {
+        //     if (measurement->ID == 1)
+        //         message << "\t\"Status\" :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\t\"SignalID\": \"" << measurement->ID << "\",\n\t\t\"Value\": \"" << measurement->Value << "\",\n\t},\n";
+        //     else if (measurement->ID == 2) {
+        //         message << "\t\"Frequency\" :\n\t{\n\t\tID: \"" << measurement->SignalID << "\",\n\t\t\"SignalID\": \"" << measurement->ID << "\",\n\t\t\"Value\": \"" << measurement->Value << "\",\n\t},\n";
+        //     } else {
+        //         json << "\t\t{\n\t\t\t\"ID\": \"" << measurement->ID << "\",\n\t\t\t\"SignalID\": \"" << measurement->SignalID << "\",\n\t\t\t\"Value\": \"" << measurement->Value << "\"\n\t\t},\n";
+        //     }
+        // }
+        // message << json.str() << "\t]\n}\n";
+        // cout << message.str();
     }
 }
 
